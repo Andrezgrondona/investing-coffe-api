@@ -5,9 +5,10 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
+    "clean": "rm -rf dist || true",
+    "build": "npm run clean && tsc",
     "start": "node dist/server.js",
-    "clean": "rm -rf dist"
+    "render-build": "npm install && npm run build"
   },
   "dependencies": {
     "axios": "^1.11.0",
