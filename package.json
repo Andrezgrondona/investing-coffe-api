@@ -1,0 +1,35 @@
+{
+  "name": "coffee-prices-api",
+  "version": "1.0.0",
+  "description": "API para extraer precios del café de Investing.com",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "puppeteer": "^21.11.0"
+  },
+  "devDependencies": {
+    "@types/cheerio": "^0.22.35",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.9.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.2.2"
+  },
+  "keywords": [
+    "coffee",
+    "prices",
+    "api",
+    "scraping"
+  ],
+  "author": "Tu nombre",
+  "license": "MIT"
+}

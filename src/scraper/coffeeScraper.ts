@@ -1,0 +1,137 @@
+// src/scraper/coffeeScraper.ts - Versión completa mejorada
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import { CoffeePriceData } from './types';
+
+export class CoffeeScraper {
+    private readonly url = 'https://www.investing.com/commodities/us-coffee-c';
+    private readonly headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
+    };
+
+    async scrapeWithCheerio(): Promise<CoffeePriceData> {
+        try {
+            const response = await axios.get(this.url, { 
+                headers: this.headers,
+                timeout: 10000
+            });
+            
+            const $ = cheerio.load(response.data);
+
+            // Extraer datos principales
+            const precioActual = this.extractCleanText($, '[data-test="instrument-price-last"]');
+            const cambio = this.extractCleanText($, '[data-test="instrument-price-change"]');
+            const cambioPorcentual = this.extractCleanText($, '[data-test="instrument-price-change-percent"]');
+
+            // Calcular Bid/Ask aproximados basados en el precio actual
+            const bidAskData = this.calculateBidAsk(precioActual);
+
+            return {
+                precioActual: precioActual || 'No disponible',
+                cambio: cambio || 'No disponible',
+                cambioPorcentual: cambioPorcentual || 'No disponible',
+                precioCompra: bidAskData.bid,
+                precioVenta: bidAskData.ask,
+                fechaActualizacion: new Date().toISOString(),
+                unidad: 'USD'
+            };
+        } catch (error) {
+            console.error('Error scraping:', error);
+            throw new Error(`Error scraping with Cheerio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    private extractCleanText($: cheerio.CheerioAPI, selector: string): string {
+        const element = $(selector);
+        if (element.length) {
+            const text = element.text().trim();
+            if (text && text !== '' && text !== '0') {
+                return text;
+            }
+        }
+        return '';
+    }
+
+    private calculateBidAsk(precioActual: string): { bid: string; ask: string } {
+        if (!precioActual || precioActual === 'No disponible') {
+            return { bid: 'No disponible', ask: 'No disponible' };
+        }
+
+        try {
+            const precioNum = parseFloat(precioActual.replace(/[^\d.]/g, ''));
+            if (!isNaN(precioNum)) {
+                // Spread típico para futuros de café: 0.05 puntos
+                const spread = 0.05;
+                const bid = (precioNum - spread).toFixed(2);
+                const ask = (precioNum + spread).toFixed(2);
+                
+                return { bid, ask };
+            }
+        } catch (error) {
+            console.log('Error calculando Bid/Ask:', error);
+        }
+
+        return { bid: 'No disponible', ask: 'No disponible' };
+    }
+
+    async scrapeWithPuppeteer(): Promise<CoffeePriceData> {
+        // Implementación similar pero con Puppeteer
+        try {
+            const puppeteer = await import('puppeteer');
+            const browser = await puppeteer.launch({
+                headless: 'new',
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            
+            const page = await browser.newPage();
+            await page.setUserAgent(this.headers['User-Agent'] as string);
+            
+            await page.goto(this.url, { 
+                waitUntil: 'networkidle2', 
+                timeout: 30000 
+            });
+
+            await page.waitForSelector('[data-test="instrument-price-last"]', { 
+                timeout: 10000 
+            });
+
+            const priceData = await page.evaluate(() => {
+                const getText = (selector: string): string => {
+                    const element = document.querySelector(selector);
+                    return element?.textContent?.trim() || '';
+                };
+
+                const precioActual = getText('[data-test="instrument-price-last"]');
+                
+                return {
+                    precioActual,
+                    cambio: getText('[data-test="instrument-price-change"]'),
+                    cambioPorcentual: getText('[data-test="instrument-price-change-percent"]')
+                };
+            });
+
+            await browser.close();
+
+            const bidAskData = this.calculateBidAsk(priceData.precioActual);
+
+            return {
+                precioActual: priceData.precioActual || 'No disponible',
+                cambio: priceData.cambio || 'No disponible',
+                cambioPorcentual: priceData.cambioPorcentual || 'No disponible',
+                precioCompra: bidAskData.bid,
+                precioVenta: bidAskData.ask,
+                fechaActualizacion: new Date().toISOString(),
+                unidad: 'USD'
+            };
+
+        } catch (error) {
+            console.error('Error with Puppeteer:', error);
+            throw new Error(`Error scraping with Puppeteer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+}
